@@ -1,0 +1,174 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro'
+
+export async function getStaticPaths() {
+  // Load all MDX files - using eager loading for static generation
+  const questionModules = import.meta.glob('../../content/questions/*.mdx', { eager: true })
+  
+  // Convert the glob object to an array of paths
+  const entries = Object.entries(questionModules)
+  
+  // Astro requires at least one path for static builds
+  // If no content exists, return a placeholder that redirects
+  if (entries.length === 0) {
+    return [{
+      params: { slug: '__placeholder__' },
+      props: { 
+        Content: null, 
+        slug: '__placeholder__',
+        frontmatter: {}
+      }
+    }]
+  }
+  
+  return entries.map(([path, module]) => {
+    const slug = path.split('/').pop()?.replace('.mdx', '') || ''
+    const mod = module as { default: any; frontmatter?: any }
+    return {
+      params: { slug },
+      props: { 
+        Content: mod.default, 
+        slug,
+        frontmatter: mod.frontmatter || {}
+      }
+    }
+  })
+}
+
+interface Props {
+  Content: any
+  slug: string
+  frontmatter?: {
+    title?: string
+    description?: string
+    keywords?: string
+  }
+}
+
+const { Content, slug, frontmatter = {} } = Astro.props
+
+// Handle missing content case (placeholder or missing file)
+if (!Content || slug === '__placeholder__') {
+  return Astro.redirect('/')
+}
+
+// Extract title from frontmatter or generate from slug
+const title = frontmatter.title || slug.split('-').map((word: string) => 
+  word.charAt(0).toUpperCase() + word.slice(1)
+).join(' ')
+
+// Extract description from frontmatter or use default
+const description = frontmatter.description || `Find answers to "${title}" with Scripture references and biblical context.`
+
+// Build canonical URL
+const siteUrl = Astro.site?.href || 'https://biible-content.vercel.app'
+const canonicalUrl = new URL(`/questions/${slug}`, siteUrl).href
+
+let metaDescription = description
+
+// Build FAQPage structured data
+const faqStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": {
+    "@type": "Question",
+    "name": title,
+    "acceptedAnswer": {
+      "@type": "Answer",
+      "text": metaDescription
+    }
+  }
+}
+
+// Build Article structured data
+const articleStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": title,
+  "description": metaDescription,
+  "url": canonicalUrl,
+  "publisher": {
+    "@type": "Organization",
+    "name": "Biible Questions",
+    "url": siteUrl
+  }
+}
+
+// Combine structured data
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    faqStructuredData,
+    articleStructuredData
+  ]
+}
+---
+
+<BaseLayout 
+  title={title}
+  description={metaDescription}
+  canonicalUrl={canonicalUrl}
+  keywords={frontmatter.keywords}
+  structuredData={structuredData}
+>
+  <article class="container mx-auto px-4 py-12 max-w-3xl">
+    <Content />
+  </article>
+</BaseLayout>
+
+<style>
+  article :global(h1) {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    line-height: 1.2;
+  }
+  
+  article :global(h2) {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+  
+  article :global(p) {
+    margin-bottom: 1rem;
+    line-height: 1.7;
+  }
+  
+  article :global(ul) {
+    list-style-type: disc;
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  article :global(li) {
+    margin-bottom: 0.5rem;
+    line-height: 1.7;
+  }
+  
+  article :global(strong) {
+    font-weight: 600;
+  }
+  
+  article :global(a) {
+    color: #2563eb;
+    text-decoration: underline;
+  }
+  
+  article :global(a:hover) {
+    color: #1d4ed8;
+  }
+  
+  article :global(hr) {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 2rem 0;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    article :global(hr) {
+      border-top-color: #374151;
+    }
+  }
+</style>
