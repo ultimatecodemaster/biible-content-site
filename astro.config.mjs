@@ -5,7 +5,7 @@ import tailwind from '@astrojs/tailwind'
 
 export default defineConfig({
   site: 'https://biible-content.vercel.app',
-  output: 'hybrid',
+  output: 'static',
   integrations: [
     mdx(),
     sitemap(),
